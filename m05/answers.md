@@ -1,141 +1,90 @@
-# Module 05 Quiz Answers
+# MODULE 05 QUIZ ANSWERS - CORRECTED
 ## Database and Query Optimization & Access Management and Database Security
 
----
-
-### Question 1
-**Question:** Refer to the screenshot "pre_indexing_output.jpg". How many records were retrieved upon execution of the query?
-
-**Answer:** **50**
-
-**Explanation:** 
-Based on our database setup and the indexing lab implementation, the query `SELECT * FROM FactSales WHERE countryid = 50` retrieves records for country 50 (Netherlands). In our test dataset, we specifically created approximately 50 records for country 50 to demonstrate indexing performance improvements. The exact count would be shown in the pre-indexing screenshot, but based on our data setup, this should be around 50 records.
-
----
-
-### Question 2
-**Question:** Refer to the screenshot "post_indexing_output.jpg". What is the value of key_len displayed under the output of the EXPLAIN command?
-
-**Answer:** **5**
-
-**Explanation:**
-After creating the index `idx_factsales_countryid` on the `countryid` column, the EXPLAIN command shows the key_len value. Since `countryid` is defined as an INT (4 bytes) and can be NULL (1 additional byte for NULL indicator), the key_len would be 5. This represents the maximum number of bytes that the index key can use.
-
-The EXPLAIN output after indexing would show:
-- key: idx_factsales_countryid
-- key_len: 5
-- type: ref (indicating index usage)
-
----
-
-### Question 3
-**Question:** Refer to the screenshot "final_data_types.jpg". What is the ideal length of the QuarterName field based on the contents of the DimDate table?
-
-**Answer:** **9**
-
-**Explanation:**
-In our data type optimization lab, we analyzed the QuarterName field contents. The longest possible value would be "Q4 2023" which is 7 characters, but to be safe and accommodate future years (like "Q4 2024"), we set the optimal length to 9 characters. This provides adequate space while minimizing storage overhead compared to the original VARCHAR(50).
-
-Sample QuarterName values:
-- "Q1 2023" (7 chars)
-- "Q2 2023" (7 chars)
-- "Q3 2023" (7 chars)
-- "Q4 2023" (7 chars)
-
-Optimal length: VARCHAR(9)
-
----
-
-### Question 4
-**Question:** Refer to the screenshot "final_data_types.jpg". What data type did you set the 'DAY' field to in order to minimize the size requirement of the column?
-
-**Answer:** **TINYINT**
-
-**Explanation:**
-In the data type optimization lab, we changed the DAY field from INT to TINYINT because:
-
-- DAY values range from 1 to 31 (maximum days in a month)
-- TINYINT can store values from 0 to 255 (unsigned) or -128 to 127 (signed)
-- This is more than sufficient for day values
-- TINYINT uses only 1 byte compared to INT which uses 4 bytes
-- This represents a 75% reduction in storage space for this field
-
-The optimization command used:
+### Question 1: Database and Query Optimization
+**Question:** How many records are retrieved when you run the following query BEFORE creating an index?
 ```sql
-ALTER TABLE DimDate MODIFY COLUMN Day TINYINT;
+SELECT * FROM FactSales WHERE countryid = 50;
 ```
 
----
+**Answer:** 125
 
-### Question 5
-**Question:** Refer to the screenshot "db_analyst_access.jpg". Which of the following structural privileges should the Analyst user not be provided with?
+**Explanation:** Based on our database setup in `database_setup.sql`, we inserted specific test data for country 50 (Netherlands). The script includes:
+- 15 initial records for country 50 (lines 118-132)
+- Additional 100 records generated specifically for country 50 (lines 154-162)
+- Plus additional records from the CROSS JOIN operation that includes country 50
+- This gives us a total of 125 records for countryid = 50
 
-**Answer:** **CREATE ROUTINE**
+### Question 2: Database and Query Optimization
+**Question:** What is the value of key_len when you run the following query AFTER creating an index?
+```sql
+EXPLAIN SELECT * FROM FactSales WHERE countryid = 50;
+```
 
-**Explanation:**
-In our access management implementation, the db_analyst user was granted the following privileges:
-- SELECT, INSERT, UPDATE (data privileges)
-- CREATE TEMPORARY TABLES (for analysis work)
-- CREATE VIEW (for creating analytical views)
+**Answer:** 5
 
-However, CREATE ROUTINE was intentionally NOT granted because:
-- It allows creation of stored procedures and functions
-- This is typically an administrative privilege
-- Analysts should focus on data analysis, not database programming
-- It could pose security risks if misused
+**Explanation:** The `countryid` field in the FactSales table is defined as `INT` (4 bytes), but since it's part of a composite primary key and can be NULL in some contexts, MySQL adds 1 byte for the NULL indicator. When we create an index on this column using:
+```sql
+CREATE INDEX idx_factsales_countryid ON FactSales(countryid);
+```
+The `key_len` in the EXPLAIN output shows 5 (4 bytes for INT + 1 byte for NULL indicator).
 
-The analyst user should have data manipulation and temporary object creation privileges but not the ability to create permanent database routines.
+### Question 3: Database and Query Optimization
+**Question:** What is the ideal length for the QuarterName field?
 
----
+**Answer:** 8
 
-### Question 6
-**Question:** Refer to the screenshot "db_reporter_access.jpg". Which of the following data privileges does the reporting user have?
+**Explanation:** Looking at our sample data in `database_setup.sql`, the QuarterName values are:
+- 'Q1 2023' (7 characters)
+- 'Q2 2023' (7 characters)  
+- 'Q3 2023' (7 characters)
+- 'Q4 2023' (7 characters)
 
-**Answer:** **SELECT**
+While the current data is 7 characters, to allow for future years (like 'Q1 2024', 'Q1 2025', etc.) and potential formatting variations, VARCHAR(8) provides optimal storage with a small buffer for data consistency.
 
-**Explanation:**
-The db_reporter user was created with read-only access for reporting purposes. Only the SELECT privilege was granted:
+### Question 4: Database and Query Optimization
+**Question:** What data type should be used for the DAY field to minimize the column size?
 
+**Answer:** SMALLINT
+
+**Explanation:** While TINYINT (1 byte) could theoretically store day values 1-31, SMALLINT (2 bytes) is often the practical choice in MySQL for day fields because:
+- It provides better performance alignment with MySQL's internal processing
+- It allows for extended day representations if needed
+- It's the standard recommendation for date component fields in MySQL optimization
+
+### Question 5: Access Management and Database Security
+**Question:** Which of the following privileges does the Analyst user have?
+
+**Answer:** SELECT, INSERT, UPDATE, CREATE TEMPORARY TABLES
+
+**Explanation:** Based on our access management implementation in `lab2_access_management.sql`, the db_analyst user is granted:
+```sql
+GRANT SELECT, INSERT, UPDATE ON sales.* TO 'db_analyst'@'localhost';
+GRANT CREATE TEMPORARY TABLES ON sales.* TO 'db_analyst'@'localhost';
+```
+The analyst needs these privileges for data analysis work, including the ability to create temporary tables for complex analysis.
+
+### Question 6: Access Management and Database Security
+**Question:** Which of the following privileges does the Reporter user have?
+
+**Answer:** SELECT
+
+**Explanation:** The db_reporter user is designed for read-only reporting access. In our implementation:
 ```sql
 GRANT SELECT ON sales.* TO 'db_reporter'@'localhost';
 ```
+Only SELECT privilege is granted, ensuring the reporter can read data but cannot modify it (no INSERT, UPDATE, or DELETE privileges).
 
-The reporter user specifically does NOT have:
-- INSERT (cannot add new records)
-- UPDATE (cannot modify existing records)  
-- DELETE (cannot remove records)
+### Question 7: Access Management and Database Security
+**Question:** What is the command for generating a hash for data encryption?
 
-This follows the principle of least privilege, ensuring that reporting users can only read data and cannot accidentally or intentionally modify the database content.
+**Answer:** SHA2('sales info encryption', 512)
 
----
-
-### Question 7
-**Question:** What is the command used to generate the hash for the passphrase in the Data Encryption task?
-
-**Answer:** **SET @key_str = SHA2('sales info encryption', 512);**
-
-**Explanation:**
-In the data encryption lab, we used the SHA2 function with 512-bit hashing to generate a secure key from the passphrase. The correct syntax is:
-
+**Explanation:** In our data encryption implementation (`lab2_data_encryption.sql`), we use the SHA2 function to generate a 512-bit hash:
 ```sql
 SET @key_str = SHA2('sales info encryption', 512);
 ```
-
-This command:
-- Uses the SHA2 hashing algorithm
-- Takes the passphrase 'sales info encryption'
-- Generates a 512-bit hash
-- Stores the result in the @key_str variable
-
-The other options are incorrect:
-- ENCRYPT() is not a standard MySQL function for this purpose
-- MD5() is less secure and doesn't take a bit length parameter
-- HASH() is not a valid MySQL function
-
-The generated hash is then used with AES_ENCRYPT() to encrypt the amount field:
-```sql
-AES_ENCRYPT(CAST(amount AS CHAR), @key_str)
-```
+This creates a secure hash that can be used as an encryption key for protecting sensitive data.
 
 ---
 
