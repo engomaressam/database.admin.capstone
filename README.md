@@ -35,7 +35,7 @@ database.admin.capstone/
 │   ├── OLTP Database Requirements and Design.md
 │   ├── sales_data_export.sql
 │   └── datadump scripts
-├── m02/                          # Module 2: ETL & Data Pipelines
+├── m03/                          # Module 3: ETL & Data Pipelines
 │   ├── automation.py            # Core ETL implementation
 │   ├── process_web_log.py       # Airflow DAG for log processing
 │   ├── Technical Documentation  # Comprehensive technical docs
@@ -51,7 +51,7 @@ database.admin.capstone/
 - **Performance Optimization**: Implemented indexing and query optimization strategies
 - **Data Export Automation**: Developed scripts for automated data extraction
 
-### Module 2: ETL Pipelines & Apache Airflow
+### Module 3: ETL Pipelines & Apache Airflow
 - **Production-Ready ETL**: Implemented robust data synchronization between systems
 - **Airflow DAGs**: Created sophisticated workflow orchestration for log processing
 - **Real-time Data Processing**: Built incremental data loading mechanisms

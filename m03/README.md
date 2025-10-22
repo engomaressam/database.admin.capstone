@@ -1,4 +1,4 @@
-# Module 2: ETL Pipelines & Apache Airflow
+# Module 3: ETL Pipelines & Apache Airflow
 
 ## 📋 Overview
 
