@@ -1,0 +1,188 @@
+MODULE 05: DATABASE AND QUERY OPTIMIZATION & ACCESS MANAGEMENT COMMANDS
+================================================================================
+
+LAB 1: DATABASE AND QUERY OPTIMIZATION
+================================================================================
+
+TASK 1: INDEXING THE TABLES
+---------------------------
+
+1. Query FactSales table without index (for performance baseline):
+   SELECT * FROM FactSales WHERE countryid = 50;
+
+2. Analyze query execution plan before indexing:
+   EXPLAIN SELECT * FROM FactSales WHERE countryid = 50;
+
+3. Create index on countryid column:
+   CREATE INDEX idx_countryid ON FactSales(countryid);
+
+4. Verify index creation:
+   SHOW INDEX FROM FactSales;
+
+5. Re-execute query after indexing (for performance comparison):
+   SELECT * FROM FactSales WHERE countryid = 50;
+
+6. Analyze query execution plan after indexing:
+   EXPLAIN SELECT * FROM FactSales WHERE countryid = 50;
+
+TASK 2: MODIFYING DATA TYPES
+----------------------------
+
+1. Check current table structure and memory usage:
+   DESCRIBE DimDate;
+   
+2. View table information (via phpMyAdmin Information section)
+
+3. Optimize data types based on data analysis:
+   - Weekday field (1-7): Change from INT to TINYINT
+   - Day field (1-31): Change from INT to TINYINT
+   - Month field (1-12): Change from INT to TINYINT
+   - Quarter field (1-4): Change from INT to TINYINT
+   - QuarterName field: Optimize VARCHAR length based on content
+   - Year field: Use SMALLINT instead of INT
+
+4. Example ALTER TABLE commands for data type optimization:
+   ALTER TABLE DimDate MODIFY COLUMN Weekday TINYINT;
+   ALTER TABLE DimDate MODIFY COLUMN Day TINYINT;
+   ALTER TABLE DimDate MODIFY COLUMN Month TINYINT;
+   ALTER TABLE DimDate MODIFY COLUMN Quarter TINYINT;
+   ALTER TABLE DimDate MODIFY COLUMN QuarterName VARCHAR(9);
+   ALTER TABLE DimDate MODIFY COLUMN Year SMALLINT;
+
+TASK 3: TABLE OPTIMIZATION
+--------------------------
+
+1. Execute table optimization command:
+   OPTIMIZE TABLE DimDate;
+
+2. Verify optimization results and performance improvements
+
+LAB 2: ACCESS MANAGEMENT AND DATABASE SECURITY
+================================================================================
+
+TASK 1A: CREATING ADMIN USER
+----------------------------
+
+1. Create admin user with full privileges:
+   CREATE USER 'db_admin'@'localhost';
+
+2. Grant all privileges on sales database:
+   GRANT ALL PRIVILEGES ON sales.* TO 'db_admin'@'localhost';
+
+3. Flush privileges:
+   FLUSH PRIVILEGES;
+
+TASK 1B: CREATING ANALYTICS USER
+--------------------------------
+
+1. Create analyst user:
+   CREATE USER 'db_analyst'@'localhost';
+
+2. Grant data viewing privileges:
+   GRANT SELECT ON sales.* TO 'db_analyst'@'localhost';
+
+3. Grant structural privileges:
+   GRANT CREATE VIEW ON sales.* TO 'db_analyst'@'localhost';
+   GRANT CREATE ROUTINE ON sales.* TO 'db_analyst'@'localhost';
+   GRANT CREATE TEMPORARY TABLES ON sales.* TO 'db_analyst'@'localhost';
+   GRANT INDEX ON sales.* TO 'db_analyst'@'localhost';
+
+4. Flush privileges:
+   FLUSH PRIVILEGES;
+
+TASK 1C: CREATING REPORTING USER
+--------------------------------
+
+1. Create reporter user:
+   CREATE USER 'db_reporter'@'localhost';
+
+2. Grant only SELECT privileges:
+   GRANT SELECT ON sales.* TO 'db_reporter'@'localhost';
+
+3. Flush privileges:
+   FLUSH PRIVILEGES;
+
+TASK 1D: CREATING EXTERNAL USER
+-------------------------------
+
+1. Create external user:
+   CREATE USER 'db_external'@'localhost';
+
+2. Grant limited SELECT privileges on specific columns:
+   GRANT SELECT (dateid, productid, countryid, categoryid) ON sales.FactSales TO 'db_external'@'localhost';
+
+3. Flush privileges:
+   FLUSH PRIVILEGES;
+
+TASK 2: DATA ENCRYPTION
+-----------------------
+
+1. Hash the encryption passphrase:
+   SET @key_str = SHA2('sales info encryption', 512);
+
+2. Modify amount field data type to support encryption:
+   ALTER TABLE FactSales MODIFY COLUMN amount VARBINARY(255);
+
+3. Encrypt the amount field data:
+   UPDATE FactSales SET amount = AES_ENCRYPT(amount, @key_str);
+
+4. Query encrypted data (without decryption):
+   SELECT * FROM FactSales LIMIT 5;
+
+5. Query and decrypt data (with passphrase):
+   SET @key_str = SHA2('sales info encryption', 512);
+   SELECT dateid, productid, countryid, categoryid, 
+          AES_DECRYPT(amount, @key_str) AS decrypted_amount 
+   FROM FactSales LIMIT 5;
+
+VERIFICATION COMMANDS
+================================================================================
+
+1. Check user accounts:
+   SELECT User, Host FROM mysql.user WHERE User LIKE 'db_%';
+
+2. Check user privileges:
+   SHOW GRANTS FOR 'db_admin'@'localhost';
+   SHOW GRANTS FOR 'db_analyst'@'localhost';
+   SHOW GRANTS FOR 'db_reporter'@'localhost';
+   SHOW GRANTS FOR 'db_external'@'localhost';
+
+3. Check table indexes:
+   SHOW INDEX FROM FactSales;
+
+4. Check table structure:
+   DESCRIBE FactSales;
+   DESCRIBE DimDate;
+
+5. Check table optimization status:
+   CHECK TABLE DimDate;
+
+PERFORMANCE ANALYSIS
+================================================================================
+
+1. Query execution time measurement:
+   - Note execution time before and after indexing
+   - Compare EXPLAIN output for query optimization analysis
+
+2. Memory usage analysis:
+   - Check table size before and after data type optimization
+   - Monitor storage efficiency improvements
+
+3. Index effectiveness:
+   - Analyze key_len values in EXPLAIN output
+   - Compare rows examined before and after indexing
+
+SECURITY VALIDATION
+================================================================================
+
+1. Test user access restrictions:
+   - Attempt unauthorized operations with limited users
+   - Verify column-level access restrictions
+
+2. Test encryption/decryption:
+   - Verify data is encrypted when queried without key
+   - Confirm proper decryption with correct passphrase
+
+3. Privilege verification:
+   - Test each user's specific privilege limitations
+   - Ensure principle of least privilege is enforced
