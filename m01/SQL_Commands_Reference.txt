@@ -1,0 +1,120 @@
+SQL Commands Reference - OLTP Database Lab
+===========================================
+
+This document contains all SQL commands used during the OLTP Database setup and configuration lab.
+
+1. DATABASE CREATION
+====================
+-- Create the sales database
+CREATE DATABASE sales;
+
+-- Use the sales database
+USE sales;
+
+2. TABLE CREATION
+=================
+-- Create the sales_data table with proper schema
+CREATE TABLE sales_data (
+    order_id INT NOT NULL,
+    product_id INT NOT NULL,
+    customer_id INT NOT NULL,
+    quantity INT NOT NULL,
+    ts DATETIME NOT NULL
+);
+
+3. DATA IMPORT
+==============
+-- Load data from CSV file into sales_data table
+-- Note: This was done using MySQL's LOAD DATA INFILE command
+LOAD DATA INFILE 'C:/Users/Diaa/database.admin.capstone/m01/oltpdata.csv'
+INTO TABLE sales_data
+FIELDS TERMINATED BY ','
+LINES TERMINATED BY '\n'
+IGNORE 1 ROWS;
+
+4. INDEX CREATION
+=================
+-- Create index on order_id for performance
+CREATE INDEX idx_order_id ON sales_data(order_id);
+
+-- Create index on product_id for performance
+CREATE INDEX idx_product_id ON sales_data(product_id);
+
+-- Create index on timestamp field for performance optimization
+CREATE INDEX ts ON sales_data(ts);
+
+5. VERIFICATION COMMANDS
+========================
+-- Show all databases
+SHOW DATABASES;
+
+-- Show all tables in the sales database
+SHOW TABLES;
+
+-- Count total records in sales_data table
+SELECT COUNT(*) FROM sales_data;
+
+-- Show table structure
+DESCRIBE sales_data;
+
+-- Show all indexes on sales_data table
+SHOW INDEX FROM sales_data;
+
+-- Show table creation statement
+SHOW CREATE TABLE sales_data;
+
+-- Sample data query
+SELECT * FROM sales_data LIMIT 5;
+
+-- Check data range
+SELECT MIN(ts) as earliest_date, MAX(ts) as latest_date FROM sales_data;
+
+6. EXPORT COMMANDS
+==================
+-- Export table structure and data (used in datadump script)
+-- Table structure:
+SHOW CREATE TABLE sales_data;
+
+-- Table data:
+SELECT * FROM sales_data;
+
+7. PERFORMANCE QUERIES
+======================
+-- Query using the timestamp index
+SELECT * FROM sales_data WHERE ts >= '2020-09-01' AND ts < '2020-10-01';
+
+-- Query using order_id index
+SELECT * FROM sales_data WHERE order_id = 6739;
+
+-- Query using product_id index
+SELECT * FROM sales_data WHERE product_id = 76305;
+
+8. ADMINISTRATIVE COMMANDS
+==========================
+-- Check MySQL server status
+SHOW STATUS;
+
+-- Show current user
+SELECT USER();
+
+-- Show current database
+SELECT DATABASE();
+
+-- Show MySQL version
+SELECT VERSION();
+
+NOTES:
+======
+- Total records imported: 2,605
+- Database engine: InnoDB
+- Character set: utf8mb4
+- Collation: utf8mb4_0900_ai_ci
+- All indexes are of type BTREE
+- Data export file: sales_data_export.sql (98.71 KB)
+
+SCRIPTS CREATED:
+===============
+- datadump.ps1: PowerShell script to export sales_data table to SQL file
+- datadump.sh: Bash script equivalent (for reference)
+
+This completes the OLTP Database setup and configuration lab.
