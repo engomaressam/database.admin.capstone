@@ -1,0 +1,98 @@
+Module 04: Database Backup and Restoration - Commands Documentation
+=======================================================================
+
+This file documents all commands used in Module 04 labs for database backup and restoration.
+
+Lab 1: Database Backup and Restoration
+======================================
+
+1. Create FactSales backup:
+   mysqldump --host=mysql --port=3306 --user=root --password sales FactSales > FactSales_backup.sql
+
+2. Drop FactSales table:
+   mysql --host=mysql --port=3306 --user=root --password --execute="DROP TABLE sales.FactSales"
+
+3. Restore FactSales table from backup:
+   mysql --host=mysql --port=3306 --user=root --password sales < FactSales_backup.sql
+
+4. Verify restoration:
+   mysql --host=mysql --port=3306 --user=root --password --execute="SELECT COUNT(*) FROM sales.FactSales"
+
+Lab 2: Backup and Restore Automation
+====================================
+
+1. Configure MySQL client (~/.my.cnf):
+   [client]
+   host=mysql
+   port=3306
+   user=root
+   password=your_password_here
+
+2. Set file permissions for security:
+   chmod 600 ~/.my.cnf
+
+3. Make backup script executable:
+   chmod u+x+r backup_automation.sh
+
+4. Set up cron job (every 3 minutes):
+   crontab -e
+   */3 * * * * /home/project/backup_automation.sh
+
+5. Run backup automation script:
+   ./backup_automation.sh
+
+6. Simulate data loss:
+   ./truncate_tables.sh
+
+7. Restore from latest backup:
+   mysql sales < /home/project/backups/backup_sales_YYYYMMDD_HHMMSS.sql
+
+Database Setup Commands:
+========================
+
+1. Create database and tables:
+   mysql --host=mysql --port=3306 --user=root --password < database_setup.sql
+
+2. Verify database structure:
+   mysql --host=mysql --port=3306 --user=root --password --execute="USE sales; SHOW TABLES;"
+
+3. Check table data:
+   mysql --host=mysql --port=3306 --user=root --password --execute="SELECT COUNT(*) FROM sales.FactSales;"
+
+Backup Automation Script Features:
+==================================
+
+1. Find and delete old backups (retention policy):
+   find $backupfolder -mtime +$keep_day -delete
+
+2. Create backup with timestamp:
+   mysqldump sales | gzip > backup_sales_$(date +%Y%m%d_%H%M%S).gz
+
+3. Verify backup creation:
+   if [ -f "$backup_file" ]; then echo "Backup created successfully"; fi
+
+Truncate Tables Script Features:
+================================
+
+1. Disable foreign key checks:
+   mysql --execute="SET FOREIGN_KEY_CHECKS = 0;" sales
+
+2. Get list of tables:
+   mysql --execute="SHOW TABLES;" sales | tail -n +2
+
+3. Truncate each table:
+   mysql --execute="TRUNCATE TABLE $table;" sales
+
+4. Re-enable foreign key checks:
+   mysql --execute="SET FOREIGN_KEY_CHECKS = 1;" sales
+
+Additional Commands:
+===================
+
+- View cron jobs: crontab -l
+- Check backup files: ls -la /home/project/backups/
+- Verify database tables: mysql --execute="SHOW TABLES;" sales
+- Check table data: mysql --execute="SELECT * FROM FactSales LIMIT 5;" sales
+- Monitor cron job output: tail -f /var/log/cron
+- Check disk space: df -h /home/project/backups/
+- Verify backup integrity: gunzip -t backup_file.gz
