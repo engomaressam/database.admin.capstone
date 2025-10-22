@@ -2,35 +2,87 @@
 
 ## ETL Implementation Summary
 
-### Database Connections
-- **MySQL Source**: Configured connection to MySQL database containing sales data
-- **PostgreSQL Target**: Configured connection to PostgreSQL data warehouse
+## Integration with Module 02 Data Warehouse
+
+This module implements ETL processes that integrate with the SoftCart.com data warehouse established in Module 02, transforming operational data into a star schema design for analytical reporting.
+
+## Database Connections
+
+### MySQL (Source Database)
+- **Host**: localhost
+- **Database**: sales
+- **Table**: sales_data
+- **Purpose**: Operational source system for transactional sales data
+- **Schema**: Simple transactional structure (rowid, product_id, customer_id, quantity, price, timestamp)
+
+### PostgreSQL (Target Data Warehouse)  
+- **Host**: localhost
+- **Database**: sales_new
+- **Schema**: SoftCart.com star schema with dimension and fact tables
+- **Purpose**: Analytical data warehouse for business intelligence and reporting
+- **Tables**:
+  - `DimDate` - Date dimension with hierarchical time attributes
+  - `DimCategory` - Product category dimension
+  - `DimCountry` - Geographic dimension for customer locations  
+  - `FactSales` - Central fact table containing sales metrics and foreign keys
 
 ### ETL Functions Implemented
 
 #### 1. get_last_rowid()
-- **Purpose**: Retrieves the maximum rowid from PostgreSQL sales_data table
+- **Purpose**: Retrieves the last processed record ID from FactSales table in data warehouse
 - **Implementation**: Uses `SELECT MAX(rowid) FROM sales_data` query
 - **Returns**: Integer representing the last synchronized record ID
+- **Features**: Enables incremental data loading from operational systems and prevents duplicate data processing
 
 #### 2. get_latest_records(last_rowid)
-- **Purpose**: Fetches new records from MySQL that haven't been synchronized
+- **Purpose**: Extracts new sales records from MySQL operational database since last processed ID
 - **Implementation**: Uses `SELECT * FROM sales_data WHERE rowid > %s` query
 - **Parameters**: last_rowid - the last synchronized record ID
-- **Returns**: List of tuples containing new records
+- **Returns**: Structured data ready for dimensional transformation
+- **Features**: Implements efficient incremental extraction strategy
 
-#### 3. insert_records(records)
-- **Purpose**: Inserts new records into PostgreSQL data warehouse
+#### 3. lookup_dimension_keys(record)
+- **Purpose**: Transforms operational data to match star schema requirements
+- **Implementation**: Maps product categories to DimCategory keys, converts timestamps to DimDate keys
+- **Features**: Handles geographic data mapping to DimCountry keys
+
+#### 4. insert_records(records)
+- **Purpose**: Loads transformed records into FactSales table in data warehouse
 - **Implementation**: Uses parameterized INSERT statements for data integrity
 - **Parameters**: records - list of tuples to insert
-- **Features**: Batch processing for efficiency
+- **Features**: Maintains referential integrity with dimension tables, batch processing for optimal performance, comprehensive error handling and transaction rollback
 
 ### Data Synchronization Process
-1. Connect to both MySQL and PostgreSQL databases
-2. Get the last synchronized rowid from PostgreSQL
-3. Fetch new records from MySQL where rowid > last_rowid
-4. Insert new records into PostgreSQL
-5. Close database connections
+
+1. **Connection Establishment**
+   - Establish connections to MySQL operational database and PostgreSQL data warehouse
+   - Verify connectivity and validate star schema table structure
+   - Handle connection errors with comprehensive logging
+
+2. **Incremental Data Identification**
+   - Query FactSales table to find the last synchronized record ID
+   - Use this ID to identify new sales transactions in MySQL source
+   - Implement efficient change data capture strategy
+
+3. **Data Transformation & Dimensional Mapping**
+   - Extract new records from MySQL operational database
+   - Transform transactional data to fit star schema design:
+     - Map timestamps to DimDate dimension keys
+     - Resolve product categories to DimCategory keys  
+     - Map customer locations to DimCountry keys
+   - Calculate derived metrics and business measures
+
+4. **Data Loading & Validation**
+   - Load transformed records into FactSales table
+   - Maintain referential integrity with dimension tables
+   - Validate data quality and business rules
+   - Generate summary statistics and load reports
+
+5. **Error Handling & Monitoring**
+   - Comprehensive error handling throughout the ETL pipeline
+   - Detailed logging for monitoring and debugging
+   - Transaction rollback capabilities for data integrity
+   - Data warehouse validation and quality checks
 
 ## Apache Airflow DAG Implementation
 

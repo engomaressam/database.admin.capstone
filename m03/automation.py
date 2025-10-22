@@ -3,8 +3,14 @@ import mysql.connector
 
 # Import libraries required for connecting to PostgreSql
 import psycopg2
+from datetime import datetime
+import logging
 
-# Connection parameters for MySQL (staging data warehouse)
+# Set up logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Connection parameters for MySQL (OLTP source system)
 mysql_config = {
     'user': 'root',
     'password': 'password123',  # Replace with actual password
@@ -12,112 +18,185 @@ mysql_config = {
     'database': 'sales'
 }
 
-# Connection parameters for PostgreSQL (production data warehouse)
+# Connection parameters for PostgreSQL (Data Warehouse - Module 02)
 postgres_config = {
     'host': 'localhost',
-    'database': 'postgres',
+    'database': 'staging',  # Module 02 data warehouse database
     'user': 'postgres',
     'password': 'password123',  # Replace with actual password
     'port': '5432'
 }
 
-# Connect to MySQL
-mysql_conn = mysql.connector.connect(**mysql_config)
-mysql_cursor = mysql_conn.cursor()
-
-# Connect to PostgreSQL
-postgres_conn = psycopg2.connect(**postgres_config)
-postgres_cursor = postgres_conn.cursor()
-
-# Create sales_data table in PostgreSQL if it doesn't exist
-create_table_sql = """
-CREATE TABLE IF NOT EXISTS sales_data (
-    rowid INTEGER PRIMARY KEY,
-    product_id INTEGER NOT NULL,
-    customer_id INTEGER NOT NULL,
-    quantity INTEGER NOT NULL,
-    price DECIMAL DEFAULT 0.0 NOT NULL,
-    timestamp TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
-)
-"""
-postgres_cursor.execute(create_table_sql)
-postgres_conn.commit()
-
-# Find out the last rowid from PostgreSQL data warehouse
-# The function get_last_rowid must return the last rowid of the table sales_data on the PostgreSQL database.
+def get_database_connections():
+    """Establish connections to both MySQL and PostgreSQL databases"""
+    try:
+        # Connect to MySQL (source)
+        mysql_conn = mysql.connector.connect(**mysql_config)
+        mysql_cursor = mysql_conn.cursor()
+        logger.info("Connected to MySQL source database")
+        
+        # Connect to PostgreSQL (data warehouse)
+        postgres_conn = psycopg2.connect(**postgres_config)
+        postgres_cursor = postgres_conn.cursor()
+        logger.info("Connected to PostgreSQL data warehouse")
+        
+        return mysql_conn, mysql_cursor, postgres_conn, postgres_cursor
+    except Exception as e:
+        logger.error(f"Database connection error: {e}")
+        raise
 
 def get_last_rowid():
+    """Get the last processed rowid from the FactSales table"""
     try:
-        # Query to get the maximum rowid from sales_data table
-        query = "SELECT MAX(rowid) FROM sales_data"
-        postgres_cursor.execute(query)
-        result = postgres_cursor.fetchone()
+        mysql_conn, mysql_cursor, postgres_conn, postgres_cursor = get_database_connections()
         
-        # If table is empty, return 0
-        if result[0] is None:
-            return 0
-        else:
-            return result[0]
+        # Query the FactSales table to get the maximum rowid
+        postgres_cursor.execute("SELECT COALESCE(MAX(rowid), 0) FROM FactSales")
+        last_rowid = postgres_cursor.fetchone()[0]
+        
+        # Close connections
+        mysql_cursor.close()
+        mysql_conn.close()
+        postgres_cursor.close()
+        postgres_conn.close()
+        
+        logger.info(f"Last processed rowid: {last_rowid}")
+        return last_rowid
     except Exception as e:
-        print(f"Error getting last rowid: {e}")
+        logger.error(f"Error getting last rowid: {e}")
         return 0
 
-
-last_row_id = get_last_rowid()
-print("Last row id on production datawarehouse = ", last_row_id)
-
-# List out all records in MySQL database with rowid greater than the one on the Data warehouse
-# The function get_latest_records must return a list of all records that have a rowid greater than the last_row_id in the sales_data table in the sales database on the MySQL staging data warehouse.
-
-def get_latest_records(rowid):
+def get_latest_records(last_rowid):
+    """Get new records from MySQL source that haven't been processed"""
     try:
-        # Query to get all records with rowid greater than the given rowid
-        query = "SELECT rowid, product_id, customer_id, quantity FROM sales_data WHERE rowid > %s"
-        mysql_cursor.execute(query, (rowid,))
+        mysql_conn, mysql_cursor, postgres_conn, postgres_cursor = get_database_connections()
+        
+        # Query for new records from MySQL
+        query = """
+        SELECT rowid, product_id, customer_id, quantity, price, timestamp
+        FROM sales_data 
+        WHERE rowid > %s
+        ORDER BY rowid
+        """
+        mysql_cursor.execute(query, (last_rowid,))
         records = mysql_cursor.fetchall()
+        
+        # Close connections
+        mysql_cursor.close()
+        mysql_conn.close()
+        postgres_cursor.close()
+        postgres_conn.close()
+        
+        logger.info(f"Retrieved {len(records)} new records from source")
         return records
     except Exception as e:
-        print(f"Error getting latest records: {e}")
+        logger.error(f"Error getting latest records: {e}")
         return []
 
-new_records = get_latest_records(last_row_id)
-
-print("New rows on staging datawarehouse = ", len(new_records))
-
-# Insert the additional records from MySQL into PostgreSQL data warehouse.
-# The function insert_records must insert all the records passed to it into the sales_data table in PostgreSQL database.
+def lookup_dimension_keys(postgres_cursor, records):
+    """Lookup dimension keys for the fact table"""
+    processed_records = []
+    
+    for record in records:
+        rowid, product_id, customer_id, quantity, price, timestamp = record
+        
+        # For this example, we'll use simplified dimension lookups
+        # In a real scenario, you'd lookup actual dimension keys
+        
+        # Date dimension lookup (simplified - using current date)
+        date_key = timestamp.strftime('%Y%m%d') if timestamp else datetime.now().strftime('%Y%m%d')
+        
+        # Category dimension (simplified - using product_id modulo for demo)
+        category_key = (product_id % 5) + 1  # Assuming 5 categories
+        
+        # Country dimension (simplified - using customer_id modulo for demo)
+        country_key = (customer_id % 10) + 1  # Assuming 10 countries
+        
+        processed_record = {
+            'rowid': rowid,
+            'product_id': product_id,
+            'customer_id': customer_id,
+            'quantity': quantity,
+            'price': price,
+            'timestamp': timestamp,
+            'date_key': date_key,
+            'category_key': category_key,
+            'country_key': country_key
+        }
+        processed_records.append(processed_record)
+    
+    return processed_records
 
 def insert_records(records):
+    """Insert new records into the FactSales table with proper dimension references"""
+    if not records:
+        logger.info("No records to insert")
+        return
+    
     try:
-        if records:
-            # Insert query for PostgreSQL
-            insert_query = """
-            INSERT INTO sales_data (rowid, product_id, customer_id, quantity, price, timestamp) 
-            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            """
-            
-            # Prepare data for insertion (add default price of 0.0)
-            insert_data = [(record[0], record[1], record[2], record[3], 0.0) for record in records]
-            
-            # Execute batch insert
-            postgres_cursor.executemany(insert_query, insert_data)
-            postgres_conn.commit()
-            print(f"Successfully inserted {len(records)} records")
-        else:
-            print("No records to insert")
+        mysql_conn, mysql_cursor, postgres_conn, postgres_cursor = get_database_connections()
+        
+        # Process records to get dimension keys
+        processed_records = lookup_dimension_keys(postgres_cursor, records)
+        
+        # Insert into FactSales table
+        insert_query = """
+        INSERT INTO FactSales (rowid, product_id, customer_id, quantity, price, timestamp, date_key, category_key, country_key)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """
+        
+        for record in processed_records:
+            postgres_cursor.execute(insert_query, (
+                record['rowid'],
+                record['product_id'],
+                record['customer_id'],
+                record['quantity'],
+                record['price'],
+                record['timestamp'],
+                record['date_key'],
+                record['category_key'],
+                record['country_key']
+            ))
+        
+        postgres_conn.commit()
+        logger.info(f"Successfully inserted {len(processed_records)} records into FactSales")
+        
+        # Close connections
+        mysql_cursor.close()
+        mysql_conn.close()
+        postgres_cursor.close()
+        postgres_conn.close()
+        
     except Exception as e:
-        print(f"Error inserting records: {e}")
-        postgres_conn.rollback()
+        logger.error(f"Error inserting records: {e}")
+        if 'postgres_conn' in locals():
+            postgres_conn.rollback()
+        raise
 
-insert_records(new_records)
-print("New rows inserted into production datawarehouse = ", len(new_records))
+def synchronize_data():
+    """Main ETL synchronization function"""
+    try:
+        logger.info("Starting ETL synchronization process")
+        
+        # Step 1: Get the last processed rowid
+        last_rowid = get_last_rowid()
+        
+        # Step 2: Get new records from source
+        new_records = get_latest_records(last_rowid)
+        
+        if not new_records:
+            logger.info("No new records to process")
+            return
+        
+        # Step 3: Insert records into data warehouse
+        insert_records(new_records)
+        
+        logger.info("ETL synchronization completed successfully")
+        
+    except Exception as e:
+        logger.error(f"ETL synchronization failed: {e}")
+        raise
 
-# disconnect from mysql warehouse
-mysql_cursor.close()
-mysql_conn.close()
-
-# disconnect from PostgreSQL data warehouse 
-postgres_cursor.close()
-postgres_conn.close()
-
-# End of program
+# Main execution
+if __name__ == "__main__":
+    synchronize_data()
